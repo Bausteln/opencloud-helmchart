@@ -165,12 +165,10 @@ spec:
             # INSECURE: needed if OpenCloud is using self generated certificates
             - name: OC_INSECURE
               value: {{ tpl (toString .Values.opencloud.insecure) . | quote }}
-            # Basic auth (only needed when not using Keycloak)
+            # Basic auth disabled (using external OIDC)
             - name: PROXY_ENABLE_BASIC_AUTH
               value: "false"
-            # These vars are needed to the csp config file to include the web office apps and the importer
-            - name: ONLYOFFICE_DOMAIN
-              value: "{{ .Values.global.domain.onlyoffice }}"
+            # CSP configuration for web apps and importer
             - name: COMPANION_DOMAIN
               value: "{{ .Values.global.domain.companion }}"
             # Sharing settings
@@ -219,8 +217,8 @@ spec:
             - name: NOTIFICATIONS_SMTP_ENCRYPTION
               value: "{{ .Values.opencloud.smtp.encryption }}"
             {{- end }}
-            {{- if or .Values.keycloak.internal.enabled .Values.global.oidc.issuer }}
-            # IDP specific configuration
+            {{- if .Values.global.oidc.issuer }}
+            # OIDC configuration (external provider required)
             - name: PROXY_AUTOPROVISION_ACCOUNTS
               value: "true"
             # user properties are edited in the idp, so we have to make them readonly
@@ -229,17 +227,11 @@ spec:
             - name: PROXY_ROLE_ASSIGNMENT_DRIVER
               value: "oidc"
             - name: OC_OIDC_ISSUER
-              {{- if .Values.global.oidc.issuer }}
               value: {{ .Values.global.oidc.issuer | quote }}
-              {{- else }}
-              value: {{ printf "https://%s/realms/%s" (include "opencloud.keycloak.domain" .) .Values.keycloak.internal.realm | quote }}
-              {{- end }}
+            {{- if .Values.global.oidc.accountUrl }}
             - name: WEB_OPTION_ACCOUNT_EDIT_LINK_HREF
-              {{- if .Values.global.oidc.accountUrl }}
               value: {{ .Values.global.oidc.accountUrl | quote }}
-              {{- else }}
-              value: {{ printf "https://%s/realms/%s/account" (include "opencloud.keycloak.domain" .) .Values.keycloak.internal.realm | quote }}
-              {{- end }}
+            {{- end }}
             - name: PROXY_OIDC_REWRITE_WELLKNOWN
               value: "true"
             - name: WEB_OIDC_CLIENT_ID
@@ -259,11 +251,7 @@ spec:
             - name: PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD
               value: "jwt"
             - name: WEB_OIDC_METADATA_URL
-              {{- if .Values.global.oidc.issuer }}
               value: {{ printf "%s/.well-known/openid-configuration" .Values.global.oidc.issuer | quote }}
-              {{- else }}
-              value: {{ printf "https://%s/realms/%s/.well-known/openid-configuration" (include "opencloud.keycloak.domain" .) .Values.keycloak.internal.realm | quote }}
-              {{- end }}
             - name: WEB_OIDC_SCOPE
               value: "openid profile email groups roles"
             {{- end }}
@@ -351,26 +339,6 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.opencloud.storage.s3.external.existingSecret | default (printf "%s-s3" (include "opencloud.opencloud.fullname" .)) }}
                   key: secretKey
-            {{- else }}
-            # Internal S3 (MinIO) storage
-            - name: STORAGE_USERS_DECOMPOSEDS3_ENDPOINT
-              value: {{ printf "http://%s:9000" (include "opencloud.minio.fullname" .) | quote }}
-            - name: STORAGE_USERS_DECOMPOSEDS3_REGION
-              value: {{ .Values.opencloud.storage.s3.internal.region | default "default" | quote }}
-            - name: STORAGE_USERS_DECOMPOSEDS3_BUCKET
-              value: {{ .Values.opencloud.storage.s3.internal.bucketName | quote }}
-            - name: STORAGE_USERS_DECOMPOSEDS3_CREATE_BUCKET
-              value: "true"
-            - name: STORAGE_USERS_DECOMPOSEDS3_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.opencloud.storage.s3.internal.existingSecret | default (include "opencloud.minio.fullname" .) }}
-                  key: rootUser
-            - name: STORAGE_USERS_DECOMPOSEDS3_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.opencloud.storage.s3.internal.existingSecret | default (include "opencloud.minio.fullname" .) }}
-                  key: rootPassword
             {{- end }}
             {{- with .Values.opencloud.env }}
             {{- toYaml . | nindent 12 }}
