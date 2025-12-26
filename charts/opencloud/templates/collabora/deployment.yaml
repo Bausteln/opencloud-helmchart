@@ -36,7 +36,8 @@ spec:
                 --o:ssl.ssl_verification={{ .Values.collabora.ssl.verification }} \
                 --o:ssl.termination=true \
                 --o:welcome.enable=false \
-                --o:net.frame_ancestors={{ include "opencloud.domain" . }}
+                --o:net.frame_ancestors={{ include "opencloud.domain" . }} \
+                --o:server_name={{ .Values.global.domain.collabora }}
             - name: username
               valueFrom:
                 secretKeyRef:
