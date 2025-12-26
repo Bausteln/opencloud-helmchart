@@ -7,85 +7,106 @@ To learn more about the release, try:
   $ helm status {{ .Release.Name }}
   $ helm get all {{ .Release.Name }}
 
-IMPORTANT: This is a development deployment. For production use, you MUST change the following default credentials:
+================================================================================
+IMPORTANT: EXTERNAL DEPENDENCIES REQUIRED
+================================================================================
 
-1. Keycloak Admin: adminUser: admin, adminPassword: admin
-2. OpenCloud Admin: adminPassword: admin
-3. PostgreSQL: user: keycloak, password: keycloak
-4. MinIO: rootUser: opencloud, rootPassword: opencloud-secret-key
-5. OnlyOffice Database: sql.dbUser: onlyoffice, sql.dbPass: onlyoffice
-6. RabbitMQ: url: amqp://guest:guest@localhost
+This minimal OpenCloud deployment requires external services:
 
-Using default credentials in production environments poses significant security risks.
+1. OIDC Provider (Authentication)
+   - Configure global.oidc.issuer, global.oidc.clientId, and global.oidc.accountUrl
+   - Examples: Keycloak, Auth0, Okta, or any OIDC-compatible provider
 
-The following services have been deployed:
+2. Storage Backend
+   {{ if eq .Values.opencloud.storage.mode "s3" -}}
+   - Mode: S3-compatible storage
+   - Configure opencloud.storage.s3.external settings
+   - Examples: AWS S3, MinIO, Ceph, or any S3-compatible service
+   {{ else if eq .Values.opencloud.storage.mode "posixfs" -}}
+   - Mode: POSIX filesystem
+   - Ensure storage class supports ReadWriteMany for multiple replicas
+   - Path: {{ .Values.opencloud.storage.posixfs.rootPath }}
+   {{ else -}}
+   - Mode: {{ .Values.opencloud.storage.mode }}
+   {{ end -}}
 
-1. OpenCloud (Main Application):
-   - Service: {{ include "opencloud.opencloud.fullname" . }}
-   - Port: 9200
-   - Storage Driver: decomposeds3
-   - System Storage Driver: decomposed
-   - S3 Storage: {{ if .Values.opencloud.storage.s3.external.enabled }}{{ .Values.opencloud.storage.s3.external.endpoint }}{{ else if .Values.opencloud.storage.s3.internal.enabled }}MinIO ({{ include "opencloud.minio.fullname" . }}){{ else }}Not configured{{ end }}
-   - S3 Bucket: {{ if .Values.opencloud.storage.s3.external.enabled }}{{ .Values.opencloud.storage.s3.external.bucket }}{{ else if .Values.opencloud.storage.s3.internal.enabled }}{{ .Values.opencloud.storage.s3.internal.bucketName }}{{ else }}Not configured{{ end }}
+================================================================================
+SECURITY WARNING
+================================================================================
 
-{{- if .Values.keycloak.internal.enabled }}
-2. Keycloak (Authentication):
-   - Service: {{ include "opencloud.keycloak.fullname" . }}
-   - Port: 8080
-   - Username: {{ .Values.keycloak.internal.adminUser }}
-   - Password: {{ .Values.keycloak.internal.adminPassword }}
+IMPORTANT: Change default credentials before production deployment!
+- OpenCloud Admin Password: {{ .Values.opencloud.adminPassword }}
+{{ if .Values.collabora.enabled -}}
+- Collabora Admin: {{ .Values.collabora.admin.username }} / {{ .Values.collabora.admin.password }}
+{{ end -}}
+
+================================================================================
+DEPLOYED SERVICES
+================================================================================
+
+OpenCloud (Main Application):
+  - Service: {{ include "opencloud.opencloud.fullname" . }}
+  - Port: 9200
+  - Replicas: {{ .Values.opencloud.replicas }}
+  - Storage Mode: {{ .Values.opencloud.storage.mode }}
+{{- if .Values.tika.enabled }}
+
+Tika (Full-text Search):
+  - Service: {{ include "opencloud.fullname" . }}-tika
+  - Port: 9998
+{{- end }}
+{{- if .Values.collabora.enabled }}
+
+Collabora CODE (Document Editor):
+  - Service: {{ include "opencloud.fullname" . }}-collabora
+  - Port: 9980
+  - Domain: {{ .Values.global.domain.collabora }}
+
+WOPI Server (Collabora Integration):
+  - Service: {{ include "opencloud.fullname" . }}-collaboration
+  - HTTP Port: 9300
+  - gRPC Port: 9301
+  - Domain: {{ .Values.global.domain.wopi }}
 {{- end }}
 
-{{- if .Values.opencloud.storage.s3.internal.enabled }}
-3. MinIO (Object Storage):
-   - Service: {{ include "opencloud.minio.fullname" . }}
-   - API Port: 9000
-   - Console Port: 9001
-   - Username: {{ .Values.opencloud.storage.s3.internal.rootUser }}
-   - Password: {{ .Values.opencloud.storage.s3.internal.rootPassword }}
-{{- end }}
+================================================================================
+ACCESS INFORMATION
+================================================================================
+{{- if .Values.ingress.enabled }}
 
-{{- if and .Values.onlyoffice.collaboration.enabled .Values.onlyoffice.enabled }}
-4. OnlyOffice Collaboration Service:
-   - Service: {{ include "opencloud.fullname" . }}-collaboration
-   - HTTP Port: 9300
-   - gRPC Port: 9301
-{{- end }}
+Ingress is ENABLED. Access OpenCloud at:
+  https://{{ .Values.global.domain.opencloud }}
+{{ if .Values.collabora.enabled }}
+Collabora will be available at:
+  https://{{ .Values.global.domain.collabora }}
 
-
-{{- if .Values.httpRoute.enabled }}
-IMPORTANT: This chart includes HTTPRoute resources that route traffic to the OpenCloud, Keycloak, and MinIO services.
-All HTTPRoutes are configured to use the Gateway named "{{ .Values.httpRoute.gateway.name }}" in the
-{{ .Values.httpRoute.gateway.namespace | default .Release.Namespace }} namespace.
-
-Make sure the Gateway exists and is properly configured to accept traffic for the following domains:
-- OpenCloud: {{ include "opencloud.domain" . }} (Service: {{ include "opencloud.opencloud.fullname" . }}, Port: 9200)
-{{- if .Values.keycloak.internal.enabled }}
-- Keycloak: {{ include "opencloud.keycloak.domain" . }} (Service: {{ include "opencloud.keycloak.fullname" . }}, Port: 8080)
-{{- end }}
-{{- if .Values.opencloud.storage.s3.internal.enabled }}
-- MinIO Console: {{ include "opencloud.minio.domain" . }} (Service: {{ include "opencloud.minio.fullname" . }}, Port: 9001)
-{{- end }}
-{{- if and .Values.onlyoffice.collaboration.enabled .Values.onlyoffice.enabled }}
-- OnlyOffice Collaboration: {{ .Values.global.domain.wopi }} (Service: {{ include "opencloud.fullname" . }}-collaboration, Port: 9300)
-{{- end }}
-
+WOPI server will be available at:
+  https://{{ .Values.global.domain.wopi }}
+{{ end }}
 {{- else }}
-IMPORTANT: The HTTPRoutes are disabled. You need to configure your own ingress controller
-to expose these services externally.
 
-Example domains for your ingress configuration:
-- OpenCloud: {{ include "opencloud.domain" . }} (Service: {{ include "opencloud.opencloud.fullname" . }}, Port: 9200)
-{{- if .Values.keycloak.internal.enabled }}
-- Keycloak: {{ include "opencloud.keycloak.domain" . }} (Service: {{ include "opencloud.keycloak.fullname" . }}, Port: 8080)
-{{- end }}
-{{- if .Values.opencloud.storage.s3.internal.enabled }}
-- MinIO Console: {{ include "opencloud.minio.domain" . }} (Service: {{ include "opencloud.minio.fullname" . }}, Port: 9001)
-{{- end }}
-{{- if and .Values.onlyoffice.collaboration.enabled .Values.onlyoffice.enabled }}
-- OnlyOffice Collaboration: {{ .Values.global.domain.wopi }} (Service: {{ include "opencloud.fullname" . }}-collaboration, Port: 9300)
-{{- end }}
+Ingress is DISABLED. Configure your ingress controller to expose:
+  - OpenCloud: {{ .Values.global.domain.opencloud }} → {{ include "opencloud.opencloud.fullname" . }}:9200
+{{ if .Values.collabora.enabled -}}
+  - Collabora: {{ .Values.global.domain.collabora }} → {{ include "opencloud.fullname" . }}-collabora:9980
+  - WOPI: {{ .Values.global.domain.wopi }} → {{ include "opencloud.fullname" . }}-collaboration:9300
+{{ end -}}
+
+Or use port-forwarding for local access:
+  kubectl port-forward svc/{{ include "opencloud.opencloud.fullname" . }} 9200:9200
 {{- end }}
 
-For more information, please refer to the OpenCloud documentation:
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Configure external OIDC provider
+2. Configure external storage (S3 or ensure ReadWriteMany PVC)
+3. Enable and configure ingress
+4. Update default passwords
+{{ if .Values.collabora.enabled -}}
+5. Configure Collabora integration in OpenCloud
+{{ end -}}
+
+For more information, visit:
   https://docs.opencloud.eu/
