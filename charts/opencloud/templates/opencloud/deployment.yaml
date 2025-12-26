@@ -304,6 +304,9 @@ spec:
             # CSP configuration
             - name: PROXY_CSP_CONFIG_FILE_LOCATION
               value: "/etc/opencloud/csp.yaml"
+            # Proxy role mapping configuration
+            - name: PROXY_ROLE_ASSIGNMENT_CONFIG
+              value: "/etc/opencloud/proxy.yaml"
             # Storage configuration
             # Always use decomposeds3 for user storage and decomposed for system storage
             - name: STORAGE_USERS_DRIVER
