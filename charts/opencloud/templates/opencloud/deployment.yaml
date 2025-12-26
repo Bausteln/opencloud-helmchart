@@ -251,9 +251,9 @@ spec:
             - name: PROXY_ROLE_ASSIGNMENT_OIDC_CLAIM
               value: "roles"
             - name: PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD
-              value: "jwt"
+              value: "none"
             - name: WEB_OIDC_METADATA_URL
-              value: {{ printf "%s/.well-known/openid-configuration" .Values.global.oidc.issuer | quote }}
+              value: {{ printf "%s://%s/.well-known/openid-configuration" (ternary "https" "http" .Values.global.tls.enabled) (include "opencloud.domain" .) | quote }}
             - name: WEB_OIDC_SCOPE
               value: "openid profile email groups roles"
             {{- end }}
