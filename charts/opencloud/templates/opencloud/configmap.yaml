@@ -40,7 +40,7 @@ data:
 {{- if empty .Values.opencloud.config.proxy -}}
 {{ tpl (.Files.Get "files/opencloud/proxy.yaml.gotmpl") . | nindent 4 }}
 {{- else -}}
-{{ .Values.opencloud.config.proxy | nindent 4 }}
+{{ toYaml .Values.opencloud.config.proxy | nindent 4 }}
 {{- end }}
 
 {{- end }}
