@@ -236,6 +236,9 @@ opencloud:
     appRegistry: {}
     # Content Security Policy (optional)
     csp: {}
+    # Proxy role mapping configuration (optional)
+    # Used to map OIDC groups to OpenCloud roles
+    proxy: {}
     # Banned password list (one per line)
     bannedPasswordList: |-
 

@@ -35,4 +35,12 @@ data:
   search.yaml: |-
 {{- .Files.Get "files/opencloud/search.yaml" | nindent 4 }}
 
+  # Proxy role mapping configuration
+  proxy.yaml: |-
+{{- if empty .Values.opencloud.config.proxy -}}
+{{ tpl (.Files.Get "files/opencloud/proxy.yaml.gotmpl") . | nindent 4 }}
+{{- else -}}
+{{ .Values.opencloud.config.proxy | nindent 4 }}
+{{- end }}
+
 {{- end }}

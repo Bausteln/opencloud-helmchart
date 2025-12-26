@@ -245,7 +245,7 @@ spec:
             - name: OC_ADMIN_USER_ID
               value: ""
             - name: GRAPH_ASSIGN_DEFAULT_USER_ROLE
-              value: "false"
+              value: "true"
             - name: GRAPH_USERNAME_MATCH
               value: "none"
             - name: PROXY_ROLE_ASSIGNMENT_OIDC_CLAIM
@@ -389,6 +389,9 @@ spec:
             - name: config-files
               mountPath: /etc/opencloud/csp.yaml
               subPath: csp.yaml
+            - name: config-files
+              mountPath: /etc/opencloud/proxy.yaml
+              subPath: proxy.yaml
             - name: config-files
               mountPath: /etc/opencloud/banned-password-list.txt
               subPath: banned-password-list.txt
