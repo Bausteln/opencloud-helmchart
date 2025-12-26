@@ -1,13 +1,11 @@
-name: Publish Helm charts to OCI Registry
+name: Publish Helm Chart to OCI Registry
 
 on:
   push:
     branches:
       - main
-    # Publish when a new tag is pushed
     tags:
       - 'v*'
-  # Allow manual trigger
   workflow_dispatch:
 
 jobs:
@@ -27,6 +25,37 @@ jobs:
         with:
           version: 'latest'
 
+      - name: Set chart version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Tagged release - use the tag version
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "is_release=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            # Main branch - use dev version with commit SHA
+            VERSION="0.0.0-${GITHUB_SHA::8}"
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "is_release=false" >> $GITHUB_OUTPUT
+          else
+            # Other branches - use dev version
+            VERSION="0.0.0-dev"
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "is_release=false" >> $GITHUB_OUTPUT
+          fi
+          echo "Chart version: ${VERSION}"
+
+      - name: Lint Helm chart
+        run: |
+          helm lint charts/opencloud
+
+      - name: Update chart version
+        if: steps.version.outputs.is_release == 'true'
+        run: |
+          echo "Updating chart version to ${{ steps.version.outputs.version }}"
+          sed -i "s/^version:.*/version: ${{ steps.version.outputs.version }}/" charts/opencloud/Chart.yaml
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -34,74 +63,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up chart-releaser
-        uses: helm/chart-releaser-action@v1.6.0
-        with:
-          install_only: true
-          
-      - name: Set up tags
+      - name: Package Helm chart
         run: |
-          echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
-          echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-          # Default version for non-tag builds
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "CHARTS_VERSION=0.0.0-${GITHUB_SHA::8}" >> $GITHUB_ENV
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "CHARTS_VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
-          else
-            echo "CHARTS_VERSION=0.0.0-dev" >> $GITHUB_ENV
-          fi
-
-      - name: Package and push OpenCloud chart
-        run: |
-          # Update Chart.yaml version if we have a tag
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "Updating chart version to ${{ env.CHARTS_VERSION }}"
-            sed -i "s/^version:.*/version: ${{ env.CHARTS_VERSION }}/" charts/opencloud/Chart.yaml
-          fi
-          
-          # Package Helm chart
           helm package charts/opencloud
-          
-          # Push to GHCR
-          helm push opencloud-*.tgz oci://ghcr.io/${{ github.repository_owner }}/helm-charts/
-          
-          # Verify the pushed chart
-          echo "Verifying the pushed chart..."
-          helm pull oci://ghcr.io/${{ github.repository_owner }}/helm-charts/opencloud --version $(helm show chart charts/opencloud | grep version | awk '{print $2}')
 
-      - name: Package and push OpenCloud Dev chart
+      - name: Push to GitHub Container Registry
         run: |
-          # Update Chart.yaml version if we have a tag
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "Updating chart version to ${{ env.CHARTS_VERSION }}"
-            sed -i "s/^version:.*/version: ${{ env.CHARTS_VERSION }}/" charts/opencloud-dev/Chart.yaml
-          fi
-          
-          # Package Helm chart
-          helm package charts/opencloud-dev
-          
-          # Push to GHCR
-          helm push opencloud-dev-*.tgz oci://ghcr.io/${{ github.repository_owner }}/helm-charts/
-          
-          # Verify the pushed chart
-          echo "Verifying the pushed chart..."
-          helm pull oci://ghcr.io/${{ github.repository_owner }}/helm-charts/opencloud-dev --version $(helm show chart charts/opencloud-dev | grep version | awk '{print $2}')
-      
-      - name: Package and push OpenCloud Microservice chart
+          helm push opencloud-*.tgz oci://ghcr.io/${{ github.repository_owner }}/helm-charts
+
+      - name: Verify published chart
         run: |
-          # Update Chart.yaml version if we have a tag
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "Updating chart version to ${{ env.CHARTS_VERSION }}"
-            sed -i "s/^version:.*/version: ${{ env.CHARTS_VERSION }}/" charts/opencloud-microservices/Chart.yaml
-          fi
-          
-          # Package Helm chart
-          helm package charts/opencloud-microservices
-          
-          # Push to GHCR
-          helm push opencloud-microservices-*.tgz oci://ghcr.io/${{ github.repository_owner }}/helm-charts/
-          
-          # Verify the pushed chart
-          echo "Verifying the pushed chart..."
-          helm pull oci://ghcr.io/${{ github.repository_owner }}/helm-charts/opencloud-microservices --version $(helm show chart charts/opencloud-microservices | grep version | awk '{print $2}')          
+          CHART_VERSION=$(helm show chart charts/opencloud | grep '^version:' | awk '{print $2}')
+          echo "Verifying chart version ${CHART_VERSION}..."
+          helm pull oci://ghcr.io/${{ github.repository_owner }}/helm-charts/opencloud --version ${CHART_VERSION}
+          echo "Chart successfully published and verified!"
