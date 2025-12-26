@@ -29,7 +29,7 @@ spec:
             - name: aliasgroup1
               value: "http://opencloud-collaboration:9300,https://{{ .Values.global.domain.wopi }}"
             - name: DONT_GEN_SSL_CERT
-              value: "YES"
+              value: {{ if .Values.collabora.ssl.enabled }}"NO"{{ else }}"YES"{{ end }}
             - name: extra_params
               value: |
                 --o:ssl.enable={{ .Values.collabora.ssl.enabled }} \
