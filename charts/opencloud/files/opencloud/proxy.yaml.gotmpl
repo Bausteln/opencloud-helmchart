@@ -1,25 +1,23 @@
 # OpenCloud Proxy Role Mapping Configuration
-# Maps OIDC groups to OpenCloud role UUIDs
+# Maps OIDC groups to OpenCloud role names
 
 # Define role mappings
 # The group names should match what your OIDC provider sends in the groups claim
 role_assignment:
   driver: oidc
   oidc_role_mapper:
-    # Map OIDC groups to OpenCloud role UUIDs
-    # OpenCloud predefined roles:
-    # - admin: aa97fe03-7980-45ac-9e50-b325749fd7e6
-    # - spaceadmin: 58c63c02-1d89-4572-916a-870abc5a1b7d
-    # - user: b1e2218d-eef8-4d4c-b82d-0f1a1b48f3b5
-    # - guest: 38071a68-456a-4553-846a-fa67bf5596c5
-
     role_claim: groups
-
-    # Default mapping - maps any authenticated user to the "user" role
-    # You can customize this by creating groups in your OIDC provider
-    # and mapping them here
-    #
-    # Example mappings:
-    # opencloud-admins: aa97fe03-7980-45ac-9e50-b325749fd7e6  # admin role
-    # opencloud-users: b1e2218d-eef8-4d4c-b82d-0f1a1b48f3b5   # user role
-    # opencloud-guests: 38071a68-456a-4553-846a-fa67bf5596c5  # guest role
+    role_mapping:
+      # Map OIDC groups to OpenCloud role names
+      # Available role names: admin, spaceadmin, user, guest
+      # Each user can only have ONE role - first match wins
+      #
+      # Example mappings:
+      # - role_name: admin
+      #   claim_value: opencloud-admins
+      # - role_name: spaceadmin
+      #   claim_value: opencloud-space-admins
+      # - role_name: user
+      #   claim_value: opencloud-users
+      # - role_name: guest
+      #   claim_value: opencloud-guests
