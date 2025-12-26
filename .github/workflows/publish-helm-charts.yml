@@ -25,9 +25,10 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Set chart version
+      - name: Set chart version and registry
         id: version
         run: |
+          # Set version based on ref
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             # Tagged release - use the tag version
             VERSION="${GITHUB_REF#refs/tags/v}"
@@ -45,6 +46,11 @@ jobs:
             echo "is_release=false" >> $GITHUB_OUTPUT
           fi
           echo "Chart version: ${VERSION}"
+
+          # Convert repository owner to lowercase for GHCR
+          REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "registry_owner=${REPO_OWNER_LOWER}" >> $GITHUB_OUTPUT
+          echo "Registry owner: ${REPO_OWNER_LOWER}"
 
       - name: Lint Helm chart
         run: |
@@ -69,11 +75,11 @@ jobs:
 
       - name: Push to GitHub Container Registry
         run: |
-          helm push opencloud-*.tgz oci://ghcr.io/${{ github.repository_owner }}/helm-charts
+          helm push opencloud-*.tgz oci://ghcr.io/${{ steps.version.outputs.registry_owner }}/helm-charts
 
       - name: Verify published chart
         run: |
           CHART_VERSION=$(helm show chart charts/opencloud | grep '^version:' | awk '{print $2}')
           echo "Verifying chart version ${CHART_VERSION}..."
-          helm pull oci://ghcr.io/${{ github.repository_owner }}/helm-charts/opencloud --version ${CHART_VERSION}
+          helm pull oci://ghcr.io/${{ steps.version.outputs.registry_owner }}/helm-charts/opencloud --version ${CHART_VERSION}
           echo "Chart successfully published and verified!"
