@@ -73,9 +73,9 @@ spec:
             - name: COLLABORATION_APP_PRODUCT
               value: "Collabora"
             - name: COLLABORATION_APP_ADDR
-              value: "https://{{ include "opencloud.collabora.domain" . }}"
+              value: "http://{{ include "opencloud.fullname" . }}-collabora:9980"
             - name: COLLABORATION_APP_ICON
-              value: "https://{{ include "opencloud.collabora.domain" . }}/favicon.ico"
+              value: "http://{{ include "opencloud.fullname" . }}-collabora:9980/favicon.ico"
             - name: COLLABORATION_APP_PROOF_DISABLE
               value: "true"
             - name: COLLABORATION_APP_INSECURE
