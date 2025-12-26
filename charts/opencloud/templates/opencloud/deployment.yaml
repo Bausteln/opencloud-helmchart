@@ -168,9 +168,11 @@ spec:
             # Basic auth disabled (using external OIDC)
             - name: PROXY_ENABLE_BASIC_AUTH
               value: "false"
+            {{- if .Values.global.domain.companion }}
             # CSP configuration for web apps and importer
             - name: COMPANION_DOMAIN
               value: "{{ .Values.global.domain.companion }}"
+            {{- end }}
             # Sharing settings
             - name: OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD
               value: "false"

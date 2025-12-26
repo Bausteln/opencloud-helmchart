@@ -4,10 +4,15 @@ directives:
   connect-src:
     - '''self'''
     - 'blob:'
+    {{- if .Values.global.domain.companion }}
     - 'https://{{ .Values.global.domain.companion }}/'
     - 'wss://{{ .Values.global.domain.companion }}/'
+    {{- end }}
     - 'https://raw.githubusercontent.com/opencloud-eu/awesome-apps/'
-    - 'https://{{ .Values.global.domain.keycloak  }}/'
+    {{- if .Values.global.oidc.issuer }}
+    {{- $issuerURL := urlParse .Values.global.oidc.issuer }}
+    - '{{ $issuerURL.scheme }}://{{ $issuerURL.host }}/'
+    {{- end }}
   default-src:
     - '''none'''
   font-src:
@@ -18,9 +23,13 @@ directives:
     - '''self'''
     - 'blob:'
     - 'https://embed.diagrams.net/'
-    # In contrary to bash and docker the default is given after the | character
-    - 'https://{{ .Values.global.domain.onlyoffice }}/'
+    {{- if .Values.global.oidc.issuer }}
+    {{- $issuerURL := urlParse .Values.global.oidc.issuer }}
+    - '{{ $issuerURL.scheme }}://{{ $issuerURL.host }}/'
+    {{- end }}
+    {{- if .Values.collabora.enabled }}
     - 'https://{{ .Values.global.domain.collabora }}/'
+    {{- end }}
     # This is needed for the external-sites web extension when embedding sites
     - 'https://docs.opencloud.eu'
   img-src:
@@ -28,9 +37,9 @@ directives:
     - 'data:'
     - 'blob:'
     - 'https://raw.githubusercontent.com/opencloud-eu/awesome-apps/'
-    # In contrary to bash and docker the default is given after the | character
-    - 'https://{{ .Values.global.domain.onlyoffice }}/'
+    {{- if .Values.collabora.enabled }}
     - 'https://{{ .Values.global.domain.collabora }}/'
+    {{- end }}
   manifest-src:
     - '''self'''
   media-src:
